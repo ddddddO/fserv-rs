@@ -1,5 +1,5 @@
-/// ref: https://doc.rust-lang.org/std/net/struct.TcpListener.html
-use std::net::{TcpListener, TcpStream};
+use std::fs::File;
+use std::net::{TcpListener, TcpStream}; /// ref: https://doc.rust-lang.org/std/net/struct.TcpListener.html
 use std::io::Result as ioResult;
 use std::io::Write; // なぜこれがいるのか。TcpStreamは既にWrite実装されてるのではないのか
 use std::io::Read; // これも
@@ -24,9 +24,10 @@ fn handle_connection(mut stream: TcpStream) -> ioResult<()> {
     println!("stream: {:?}", stream);
 
     let path = read_http(&mut stream)?;
-    println!("PAth!: {}", path);
+    let contents = get_file_contents(&path)?;
+    println!("contents: {}", contents);
 
-    write_http(&mut stream)?;
+    write_http(&mut stream, &contents)?;
     stream.flush()?;
     Ok(())
 }
@@ -57,16 +58,27 @@ fn parse_request_line(line: &str) -> (&str, &str, &str) {
     (method, path, protocol)
 }
 
-fn write_http(stream: &mut TcpStream) -> ioResult<()> {
+// https://doc.rust-jp.rs/book-ja/ch12-02-reading-a-file.html
+// TODO: バリデーションとか色々
+fn get_file_contents(path: &str) -> ioResult<String> {
+    let file_path = ".".to_owned() + path;
+
+    let mut f = File::open(file_path).expect("file not found");
+    let mut contents = String::new();
+    f.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
     stream.write(b"HTTP/1.1 200 OK\r\n")?;
     stream.write(b"Allow:: GET\r\n")?; // 可変借用2回以上okだっけ？
     stream.write(b"Connection: close\r\n")?;
     stream.write(b"\r\n")?;
     stream.write(b"\r\n")?;
 
-    stream.write(b"Bodyyyyyyyyy\n")?;
-    stream.write(b"Bodyyyyyyyyy\n")?;
+    stream.write(contents.as_bytes())?;
 
+    stream.write(b"\r\n")?;
     stream.write(b"\r\n")?;
     Ok(())
 }
