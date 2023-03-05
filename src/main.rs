@@ -23,21 +23,38 @@ fn main() -> ioResult<()> {
 fn handle_connection(mut stream: TcpStream) -> ioResult<()> {
     println!("stream: {:?}", stream);
 
-    read_http(&mut stream)?;
+    let path = read_http(&mut stream)?;
+    println!("PAth!: {}", path);
+
     write_http(&mut stream)?;
-    // stream.write(b"aaaa\nbbb")?;
     stream.flush()?;
     Ok(())
 }
 
 // TODO: streamの先頭行だけpeekしてプロトコルが何なのかチェックするfunc
 
-fn read_http(stream: &mut TcpStream) -> ioResult<()> {
+fn read_http(stream: &mut TcpStream) -> ioResult<String> {
     let mut buf = [0;100]; // FIXME: 固定値やめたい
     stream.read(&mut buf)?;
+
     let s = std::str::from_utf8(&buf).unwrap(); // ここエラーハンドルしないと？
-    println!("req:\n{}", s);
-    Ok(())
+    println!("Request:\n{}", s);
+
+    let lines = s.lines().collect::<Vec<&str>>();
+    let (_, path, _) = parse_request_line(lines[0]);
+
+    let copied_path = String::from(path);
+    Ok(copied_path)
+}
+
+fn parse_request_line(line: &str) -> (&str, &str, &str) {
+    let parsed: Vec<&str> = line.split(" ").collect();
+    let (method, path, protocol) = (parsed[0], parsed[1], parsed[2]); // FIXME: lenチェック
+    println!("Method: {}", method);
+    println!("Path: {}", path);
+    println!("Protocol: {}", protocol);
+
+    (method, path, protocol)
 }
 
 fn write_http(stream: &mut TcpStream) -> ioResult<()> {
