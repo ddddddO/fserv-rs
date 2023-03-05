@@ -1,9 +1,13 @@
+use std::fs;
 use std::fs::File;
+use std::path::Path;
 use std::net::{TcpListener, TcpStream}; /// ref: https://doc.rust-lang.org/std/net/struct.TcpListener.html
 use std::io::Result as ioResult;
 use std::io::Write; // なぜこれがいるのか。TcpStreamは既にWrite実装されてるのではないのか
 use std::io::Read; // これも
 
+// FIXME: このリポジトリで実行すると、例えば、/ -> .git -> info -> exclude の遷移でここがダメ。
+//        リクエストuriが、http://127.0.0.1:8080/.git/.git/info/exclude なってる。
 fn main() -> ioResult<()> {
     println!("Lauch fserv-rs.");
 
@@ -11,24 +15,26 @@ fn main() -> ioResult<()> {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handle_connection(stream)?;
+                match handle_connection(stream) {
+                    Ok(..) => (),
+                    Err(e) => println!("Handle error! {:?}", e),
+                }
             }
-            Err(e) => println!("Error! {:?}", e),
+            Err(e) => println!("Faild to connect? {:?}", e),
         }
     }
     Ok(())
 }
 
-// ioResult<()> だと、エラー返してないよね？
 fn handle_connection(mut stream: TcpStream) -> ioResult<()> {
-    println!("stream: {:?}", stream);
-
     let path = read_http(&mut stream)?;
-    let contents = get_file_contents(&path)?;
-    println!("contents: {}", contents);
+    if !valid_path(&path) {
+        write_http_notfound(&mut stream)?;
+        return Ok(());
+    }
 
+    let contents = get_file_contents(&path)?;
     write_http(&mut stream, &contents)?;
-    stream.flush()?;
     Ok(())
 }
 
@@ -39,39 +45,91 @@ fn read_http(stream: &mut TcpStream) -> ioResult<String> {
     stream.read(&mut buf)?;
 
     let s = std::str::from_utf8(&buf).unwrap(); // ここエラーハンドルしないと？
-    println!("Request:\n{}", s);
-
     let lines = s.lines().collect::<Vec<&str>>();
-    let (_, path, _) = parse_request_line(lines[0]);
+    if let Some((_, path, _)) = parse_request_line(lines[0]) {
+        let copied_path = String::from(path);
+        return Ok(copied_path);
+    }
 
-    let copied_path = String::from(path);
-    Ok(copied_path)
+    Ok("".to_string())
 }
 
-fn parse_request_line(line: &str) -> (&str, &str, &str) {
+fn parse_request_line(line: &str) -> Option<(&str, &str, &str)> {
     let parsed: Vec<&str> = line.split(" ").collect();
-    let (method, path, protocol) = (parsed[0], parsed[1], parsed[2]); // FIXME: lenチェック
+    if parsed.len() != 3 {
+        return None;
+    }
+
+    let (method, path, protocol) = (parsed[0], parsed[1], parsed[2]);
     println!("Method: {}", method);
     println!("Path: {}", path);
     println!("Protocol: {}", protocol);
 
-    (method, path, protocol)
+    Some((method, path, protocol))
 }
 
 // https://doc.rust-jp.rs/book-ja/ch12-02-reading-a-file.html
 // TODO: バリデーションとか色々
 fn get_file_contents(path: &str) -> ioResult<String> {
-    let file_path = ".".to_owned() + path;
+    let mut name = path.to_string();
+    name.remove(0); // 先頭の"/"削除
+    let file_path = Path::new(".").join(name);
+    if file_path.is_dir() {
+        if let Some(dir) = file_path.to_str() {
+            println!("in root: {}", dir);
+            let page = generate_root_page(dir);
+            return Ok(page);
+        };
+    };
 
-    let mut f = File::open(file_path).expect("file not found");
+    let mut f = File::open(file_path)?;
     let mut contents = String::new();
     f.read_to_string(&mut contents)?;
     Ok(contents)
 }
 
+// TODO: 今いるパスのls一覧に含まれてるかそうでないかチェック
+fn valid_path(path: &str) -> bool {
+    if path == "" {
+        return false;
+    }
+    if path == "/favicon.ico" {
+        return false;
+    }
+    true
+}
+
+fn generate_root_page(path: &str) -> String {
+    let mut buf = String::from("<html><head></head><body><pre>\n");
+
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries {
+            let e_ref = entry.as_ref();
+            let link = Path::new(path);
+
+            if let Some(p) = e_ref.unwrap().file_name().to_str() {
+                buf.push_str("<a href=\"");
+                if let Some(l) = link.join(p).to_str() {
+                    buf.push_str(l);
+                }
+
+                buf.push_str("\">");
+                buf.push_str(p);
+                if e_ref.expect("not found path").path().is_dir() {
+                    buf.push_str("/");
+                }
+                buf.push_str("</a>\n");
+            }
+        }
+    }
+    let page = buf + "</pre></body></html>";
+
+    page
+}
+
 fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
     stream.write(b"HTTP/1.1 200 OK\r\n")?;
-    stream.write(b"Allow:: GET\r\n")?; // 可変借用2回以上okだっけ？
+    stream.write(format!("Content-Length: {}\r\n", contents.len()).as_bytes())?;
     stream.write(b"Connection: close\r\n")?;
     stream.write(b"\r\n")?;
     stream.write(b"\r\n")?;
@@ -80,5 +138,22 @@ fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
 
     stream.write(b"\r\n")?;
     stream.write(b"\r\n")?;
+
+    stream.flush()?;
+    Ok(())
+}
+
+fn write_http_notfound(stream: &mut TcpStream) -> ioResult<()> {
+    stream.write(b"HTTP/1.1 404 Not Found\r\n")?;
+    stream.write(b"Connection: close\r\n")?;
+    stream.write(b"\r\n")?;
+    stream.write(b"\r\n")?;
+
+    stream.write(b"404 Not Found")?;
+
+    stream.write(b"\r\n")?;
+    stream.write(b"\r\n")?;
+
+    stream.flush()?;
     Ok(())
 }
