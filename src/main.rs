@@ -6,8 +6,6 @@ use std::io::Result as ioResult;
 use std::io::Write; // なぜこれがいるのか。TcpStreamは既にWrite実装されてるのではないのか
 use std::io::Read; // これも
 
-// FIXME: このリポジトリで実行すると、例えば、/ -> .git -> info -> exclude の遷移でここがダメ。
-//        リクエストuriが、http://127.0.0.1:8080/.git/.git/info/exclude なってる。
 fn main() -> ioResult<()> {
     println!("Lauch fserv-rs.");
 
@@ -110,7 +108,16 @@ fn generate_root_page(path: &str) -> String {
             if let Some(p) = e_ref.unwrap().file_name().to_str() {
                 buf.push_str("<a href=\"");
                 if let Some(l) = link.join(p).to_str() {
-                    buf.push_str(l);
+                    let mut parsed: Vec<&str> = l.split("/").collect();
+                    if parsed.len() >= 4 {
+                        buf.push_str(".");
+                        // hrefで欲しいのは、(parsed.len()-2)..の範囲のパス
+                        for p in parsed.drain((parsed.len()-2)..) {
+                            buf.push_str(format!("/{}", p).as_str());
+                        }
+                    } else {
+                        buf.push_str(l);
+                    }
                 }
 
                 buf.push_str("\">");
