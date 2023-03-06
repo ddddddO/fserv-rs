@@ -74,7 +74,6 @@ fn get_file_contents(path: &str) -> ioResult<String> {
     let file_path = Path::new(".").join(name);
     if file_path.is_dir() {
         if let Some(dir) = file_path.to_str() {
-            println!("in root: {}", dir);
             let page = generate_index_page(dir);
             return Ok(page);
         };
