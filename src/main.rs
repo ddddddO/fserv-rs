@@ -7,7 +7,7 @@ use std::io::Write; // なぜこれがいるのか。TcpStreamは既にWrite実�
 use std::io::Read; // これも
 
 fn main() -> ioResult<()> {
-    println!("Lauch fserv-rs.");
+    println!("Launch fserv-rs.");
 
     let listener = TcpListener::bind("127.0.0.1:8080")?;
     for stream in listener.incoming() {
