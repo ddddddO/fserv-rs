@@ -75,7 +75,7 @@ fn get_file_contents(path: &str) -> ioResult<String> {
     if file_path.is_dir() {
         if let Some(dir) = file_path.to_str() {
             println!("in root: {}", dir);
-            let page = generate_root_page(dir);
+            let page = generate_index_page(dir);
             return Ok(page);
         };
     };
@@ -97,7 +97,7 @@ fn valid_path(path: &str) -> bool {
     true
 }
 
-fn generate_root_page(path: &str) -> String {
+fn generate_index_page(path: &str) -> String {
     let mut buf = String::from("<html><head></head><body><pre>\n");
 
     if let Ok(entries) = fs::read_dir(path) {
