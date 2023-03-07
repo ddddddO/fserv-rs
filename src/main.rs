@@ -9,7 +9,7 @@ use std::io::Read; // これも
 fn main() -> ioResult<()> {
     println!("Launch fserv-rs.");
 
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
+    let listener = TcpListener::bind("127.0.0.1:8081")?;
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -85,15 +85,14 @@ fn get_file_contents(path: &str) -> ioResult<String> {
     Ok(contents)
 }
 
-// TODO: 今いるパスのls一覧に含まれてるかそうでないかチェック
+// TODO: この実装をやめ、ちゃんと今いるパスのls一覧に含まれてるかそうでないかチェック
 fn valid_path(path: &str) -> bool {
-    if path == "" {
-        return false;
+    match path {
+        "" => false,
+        "/favicon.ico" => false,
+        "/service_worker.js" => false,
+        _ => true,
     }
-    if path == "/favicon.ico" {
-        return false;
-    }
-    true
 }
 
 fn generate_index_page(path: &str) -> String {
@@ -128,9 +127,8 @@ fn generate_index_page(path: &str) -> String {
             }
         }
     }
-    let page = buf + "</pre></body></html>";
 
-    page
+    buf + "</pre></body></html>"
 }
 
 fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
@@ -138,8 +136,8 @@ fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
     stream.write(format!("Content-Length: {}\r\n", contents.len()).as_bytes())?;
     stream.write(b"Connection: close\r\n")?;
     stream.write(b"\r\n")?;
-    stream.write(b"\r\n")?;
 
+    println!("CONTENTS\n{}", contents);
     stream.write(contents.as_bytes())?;
 
     stream.write(b"\r\n")?;
@@ -152,7 +150,6 @@ fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
 fn write_http_notfound(stream: &mut TcpStream) -> ioResult<()> {
     stream.write(b"HTTP/1.1 404 Not Found\r\n")?;
     stream.write(b"Connection: close\r\n")?;
-    stream.write(b"\r\n")?;
     stream.write(b"\r\n")?;
 
     stream.write(b"404 Not Found")?;
