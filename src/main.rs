@@ -42,11 +42,13 @@ fn read_http(stream: &mut TcpStream) -> ioResult<String> {
     let mut buf = [0;100]; // FIXME: 固定値やめたい
     stream.read(&mut buf)?;
 
-    let s = std::str::from_utf8(&buf).unwrap(); // ここエラーハンドルしないと？
-    let lines = s.lines().collect::<Vec<&str>>();
-    if let Some((_, path, _)) = parse_request_line(lines[0]) {
-        let copied_path = String::from(path);
-        return Ok(copied_path);
+    // TODO: Errの場合err返す。が、↑で返すErrの型が違う場合どうすれば？
+    if let Ok(s) = std::str::from_utf8(&buf) {
+        let lines = s.lines().collect::<Vec<&str>>();
+        if let Some((_, path, _)) = parse_request_line(lines[0]) {
+            let copied_path = String::from(path);
+            return Ok(copied_path);
+        }
     }
 
     Ok("".to_string())
@@ -55,7 +57,7 @@ fn read_http(stream: &mut TcpStream) -> ioResult<String> {
 fn parse_request_line(line: &str) -> Option<(&str, &str, &str)> {
     let parsed: Vec<&str> = line.split(" ").collect();
     if parsed.len() != 3 {
-        return None;
+        return None; // ここNoneなのかな。httpのステータスラインでないものが来てる、ということが確実ならErrかなとも思う。
     }
 
     let (method, path, protocol) = (parsed[0], parsed[1], parsed[2]);
