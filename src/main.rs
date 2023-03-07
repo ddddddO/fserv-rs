@@ -57,7 +57,7 @@ fn read_http(stream: &mut TcpStream) -> ioResult<String> {
 fn parse_request_line(line: &str) -> Option<(&str, &str, &str)> {
     let parsed: Vec<&str> = line.split(" ").collect();
     if parsed.len() != 3 {
-        return None; // ここNoneなのかな。httpのステータスラインでないものが来てる、ということが確実ならErrかなとも思う。
+        return None; // ここNoneなのかな。httpのリクエストラインでないものが来てる、ということが確実ならErrかなとも思う。
     }
 
     let (method, path, protocol) = (parsed[0], parsed[1], parsed[2]);
