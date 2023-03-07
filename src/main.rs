@@ -136,10 +136,11 @@ fn generate_index_page(path: &str) -> String {
 fn write_http(stream: &mut TcpStream, contents: &str) -> ioResult<()> {
     stream.write(b"HTTP/1.1 200 OK\r\n")?;
     stream.write(format!("Content-Length: {}\r\n", contents.len()).as_bytes())?;
+    // TODO: レスポンスによって、ContentType変えたい
+    // stream.write(b"Content-Type: text/rust; charset=utf-8\r\n")?;
     stream.write(b"Connection: close\r\n")?;
     stream.write(b"\r\n")?;
 
-    println!("CONTENTS\n{}", contents);
     stream.write(contents.as_bytes())?;
 
     stream.write(b"\r\n")?;
