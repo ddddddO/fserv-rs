@@ -1,10 +1,7 @@
-use std::fs;
-use std::fs::File;
+use std::fs::{self, File};
 use std::path::Path;
 use std::net::{TcpListener, TcpStream}; /// ref: https://doc.rust-lang.org/std/net/struct.TcpListener.html
-use std::io::Result as ioResult;
-use std::io::Write; // なぜこれがいるのか。TcpStreamは既にWrite実装されてるのではないのか
-use std::io::Read; // これも
+use std::io::{Read, Write, Result as ioResult}; // なぜWrite/Readがいるのか。TcpStreamは既にWrite実装されてるのではないのか
 
 fn main() -> ioResult<()> {
     println!("Launch fserv-rs.");
