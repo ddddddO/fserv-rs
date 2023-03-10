@@ -3,8 +3,27 @@ use std::path::Path;
 use std::net::{TcpListener, TcpStream}; /// ref: https://doc.rust-lang.org/std/net/struct.TcpListener.html
 use std::io::{Read, Write, Result as ioResult}; // なぜWrite/Readがいるのか。TcpStreamは既にWrite実装されてるのではないのか
 
+use crate::file_server::{FileServer};
+
 pub struct HttpServer {
   listener: TcpListener,
+}
+
+impl FileServer for HttpServer {
+  fn serve(&self) -> ioResult<()> {
+    for stream in self.listener.incoming() {
+        match stream {
+            Ok(stream) => {
+                match self.handle_connection(stream) {
+                    Ok(..) => (),
+                    Err(e) => println!("Handle error! {:?}", e),
+                }
+            }
+            Err(e) => println!("Faild to connect? {:?}", e),
+        }
+    }
+    Ok(())
+  }
 }
 
 impl HttpServer {
@@ -12,21 +31,6 @@ impl HttpServer {
       Self {
           listener: listener,
       }
-  }
-
-  pub fn serve(&self) -> ioResult<()> {
-      for stream in self.listener.incoming() {
-          match stream {
-              Ok(stream) => {
-                  match self.handle_connection(stream) {
-                      Ok(..) => (),
-                      Err(e) => println!("Handle error! {:?}", e),
-                  }
-              }
-              Err(e) => println!("Faild to connect? {:?}", e),
-          }
-      }
-      Ok(())
   }
 
   fn handle_connection(&self, mut stream: TcpStream) -> ioResult<()> {
