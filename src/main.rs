@@ -10,17 +10,12 @@ fn main() -> ioResult<()> {
 
     // HTTP Server
     // let listener = TcpListener::bind("127.0.0.1:8081")?;
-    // let server = HttpServer::new(listener);
+    // let server: &dyn FileServer = &HttpServer::new(listener);
 
     // FTP Server
     const CONTROL_CONNECTION_PORT: &str = "21";
     let listener = TcpListener::bind(format!("127.0.0.1:{}", CONTROL_CONNECTION_PORT))?;
-    let server = FtpServer::new(listener);
+    let server: &dyn FileServer = &FtpServer::new(listener);
 
-    serve(&server)
-}
-
-// TODO: let server: FileServer = HttpServer::new(listener); みたいに、短く書けないか？
-fn serve<T: FileServer>(server: &T) -> ioResult<()> {
     server.serve()
 }
